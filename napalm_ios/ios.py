@@ -1828,3 +1828,99 @@ class IOSDriver(NetworkDriver):
             configs['running'] = output
 
         return configs
+
+    def get_eigrp_neighbors(self):
+        """
+        EIGRP neighbor information.
+
+        Currently, no VRF support
+        Not tested with IPv6
+
+        EIGRP-IPv4 Neighbors for AS(1)
+        H   Address                 Interface       Hold Uptime   SRTT   RTO  Q  Seq
+                                                    (sec)         (ms)       Cnt Num
+        1   3.3.3.1                 Tu3               29 04:29:29   10   300  0  1000
+           Version 20.0/2.0, Retrans: 2, Retries: 0, Prefixes: 2
+           Topology-ids from peer - 0
+        2   2.2.2.1                 Tu2               26 21:59:56   60  1215  0  2000
+           Version 6.0/3.0, Retrans: 5, Retries: 0, Prefixes: 2
+           Topology-ids from peer - 0
+        0   1.1.1.1                 Tu1               22 1d10h     400  5000  0  800000
+           Version 6.0/3.0, Retrans: 7, Retries: 0, Prefixes: 2
+           Topology-ids from peer - 0
+        3   4.4.4.4                 Tu4               29 3d02h      20   675  0  30000
+           Version 20.0/2.0, Retrans: 16, Retries: 0, Prefixes: 2
+        Topology-ids from peer - 0
+        
+        BFD sessions
+        NeighAddr         Interface
+
+
+        """
+
+        cmd_eigrp_neighbors = 'show ip eigrp neighbors detail'
+        eigrp_neighbor_data = {}
+        eigrp_neighbor_data['global'] = {}
+
+        cmd_get_router_id = 'show ip eigrp topology | include ID'
+
+        output = self._send_command(cmd_get_router_id).strip()
+        # Cisco issue where new lines are inserted after neighbor IP
+        output = re.sub(RE_IPADDR_STRIP, r"\1", output)
+        if 'EIGRP-IPv4' not in output:
+            return {}
+
+        # EIGRP-IPv4 Topology Table for AS(1)/ID(1.1.1.1)
+        rid_regex = r'^.* Topology Table for AS((\d+))/ID((\d+\.\d+\.\d+\.\d+))'
+        match = re.search(rid_regex, line)
+        local_as = int(match.group(1))
+        router_id = match.group(2)
+
+        eigrp_neighbor_data['global']['router_id'] = py23_compat.text_type(router_id)
+        eigrp_neighbor_data['global']['peers'] = {}
+
+        cmd_eigrp_neighbors = 'show ip eigrp neighbors detail'
+        output = self._send_command(cmd_eigrp_neighbors).strip()
+        # Cisco issue where new lines are inserted after neighbor IP
+        output = re.sub(RE_IPADDR_STRIP, r"\1", output)
+
+        toskip = ['Hold Uptime', 'EIGRP-IPv4', '', '(sec)']
+
+        for line in output.splitlines():
+            line = line.strip()
+            if toskip in line:
+                continue
+
+            fields = line.split()
+
+            if fields[0] != 'Version' and fields[0] != 'Topology-ids':
+                peer_id = fields[0]
+                interface = fields[1]
+                holdtime = fields[2]
+
+                #convert to pure seconds
+                uptime = fields[3].split(":")
+                uptime = (int(uptime[0]) * 60 * 60) + (int(uptime[1] * 60) + int(uptime[2])
+
+                srtt = fields[4]
+                rto = fields[5]
+                q_count = fields[6]
+                seq_num = fields[7]
+
+            if fields[0] = 'Version':
+                version = fields[1]
+                retransmits = fields[2]
+                retries = fields[3]
+                prefixes = fields[4]
+
+            if fields[0] = 'Topology-ids':
+                eigrp_neighbor_data['global']['peers'].setdefault(peer_id, {})
+                peer_dict = {}
+                peer_dict['interface'] = self.bgp_time_conversion(up_time)
+                peer_dict['holdtime'] = int(remote_as)
+                peer_dict['uptime'] = u''
+                peer_dict['srtt'] = local_as
+                peer_dict['rto'] = is_enabled
+                peer_dict['q_count'] = is_up
+                peer_dict['seq_num'] = py23_compat.text_type(remote_rid)
+
